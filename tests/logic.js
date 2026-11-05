@@ -1,0 +1,34 @@
+const fs=require('fs');
+global.localStorage={_:{},getItem(k){return k in this._?this._[k]:null},setItem(k,v){this._[k]=String(v)},removeItem(k){delete this._[k]}};
+global.window={matchMedia:()=>({matches:false})};
+global.document={documentElement:{classList:{toggle(){}}},getElementById:()=>null};
+global.Chart=function(){};
+eval(fs.readFileSync('_app.js','utf8')+';global.App=stockJournalApp;');
+const a=App(); a.$watch=()=>{}; a.$nextTick=f=>f(); a.activeTab='journal'; a.loadLocal(); a.splitMarkets();
+const assert=(c,m)=>{if(!c){console.log('FAIL',m);process.exitCode=1}else console.log('ok  ',m)};
+assert(a.trades.length===11,'11 sample trades');
+assert(a.closedTrades.length===10 && a.openTrades.length===1,'10 closed / 1 open');
+const m=a.trades.find(t=>t.stockName==='MAYBANK'); assert(m.netPL===(10.30-9.80)*1000-8 && m.result==='WIN','MAYBANK P/L '+m.netPL);
+const te=a.trades.find(t=>t.stockName==='TENAGA'); assert(te.netPL===-200-8 && te.result==='LOSS','TENAGA loss '+te.netPL);
+assert(Math.abs(a.currentCapital-(10000+a.totalAllPL))<0.001,'capital '+a.currentCapital);
+a.filterYear='all';a.filterMonth='all'; const k=a.kpi; assert(k.total===10 && k.wins+k.losses+k.be===10,'KPI wins/losses '+k.wins+'/'+k.losses+' wr '+k.winRate.toFixed(1)+' pf '+k.pf.toFixed(2));
+a.filterYear='2026';a.filterMonth='all'; assert(a.kpi.total===10,'year filter (2026)');
+a.filterYear='2026';a.filterMonth='10'; assert(a.kpi.total===1,'month filter Okt: '+a.kpi.total);
+assert(a.monthlyData.labels.length>0 && a.equityData.values.length===a.periodClosed.length+1,'chart data');
+a.calc={capital:10000,riskPct:1,entry:5,sl:4.8,fees:0,tp1:5.3,tp2:5.4,tp3:5.6};
+const c=a.calcResult; assert(c.valid && c.shares===500 && c.lots===5 && Math.abs(c.loss-100)<1e-6,'calc 500 unit, loss '+c.loss);
+assert(Math.abs(c.tps[0].price-5.3)<1e-9 && Math.abs(c.tps[0].profit-150)<1e-6,'TP1 5.30 profit 150');
+a.calc.sl=5.1; assert(!a.calcResult.valid,'SL>entry invalid');
+a.calc={...a.calc,sl:2,entry:50,capital:1000}; assert(a.calcResult.valid&&a.calcResult.shares===0&&a.calcResult.warnings.length>0,'0 lot warning');
+const id=a.genId('2026-01-05'); assert(id==='TRD-20260105-002','unique id '+id);
+a.form={...a.emptyForm(),stockName:'x',buyPrice:2,quantity:100,stopLoss:1.9,tp1:2.3}; assert(Math.abs(a.formPreview.rr-3)<1e-9,'form RR 3');
+a.closing=a.openTrades[0]; a.closeForm={closeDate:'2026-10-30',sellPrice:5.5,fees:10}; assert(Math.abs(a.closePreview-436)<1e-9,'close preview '+a.closePreview);
+// full async flows (demo mode)
+(async()=>{
+ a.showToast=()=>{}; a.form={...a.emptyForm(),stockName:'abc',buyPrice:1,quantity:1000,stopLoss:0.9,openDate:'2026-10-31'};
+ await a.submitAddTrade(); assert(a.trades.some(t=>t.stockName==='ABC'&&t.status==='OPEN'),'add trade');
+ const o=a.trades.find(t=>t.stockName==='ABC'); a.openCloseModal(o); a.closeForm.sellPrice=1.2; a.closeForm.closeDate='2026-10-31'; await a.submitCloseTrade();
+ assert(a.trades.find(t=>t.stockName==='ABC').netPL===192 && a.trades.find(t=>t.stockName==='ABC').status==='CLOSED','close trade 200 - yuran 8 = 192');
+ a.openDeleteModal(o); await a.confirmDeleteTrade(); assert(!a.trades.some(t=>t.stockName==='ABC'),'delete trade');
+ assert(JSON.parse(localStorage.getItem('sj_trades')).length===18,'persisted to localStorage');
+})();

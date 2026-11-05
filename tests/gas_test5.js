@@ -1,0 +1,38 @@
+const {sheets,ctx,post,get}=require('./gas_mock.js');
+let fails=0;const ok=(c,m)=>{if(!c){fails++;console.log('FAIL',m)}else console.log('ok  ',m)};
+const PNG='data:image/png;base64,'+Buffer.from('fakepngbytes').toString('base64');
+let r=get('getDashboardData'); ok(Array.isArray(r.knowledge)&&sheets.KNOWLEDGE,'dashboard: knowledge + sheet auto-cipta');
+const K=o=>Object.assign({date:'2026-11-01',title:'Jangan average down',category:'Risiko',content:'nota',pinned:1},o||{});
+r=post('createKnowledge',K()); ok(r.status==='success'&&r.knowledge.knId==='KN-20261101-001'&&r.knowledge.pinned===1&&r.knowledge.imageUrl==='','createKnowledge tanpa gambar');
+const id1=r.knowledge.knId;
+r=post('createKnowledge',K({title:'B',imageUrl:'https://evil.com/x.png'})); ok(r.status==='success'&&r.knowledge.imageUrl==='','URL gambar dari klien diabaikan');
+r=post('createKnowledge',K({title:'C',imageData:PNG})); ok(r.status==='success'&&/^https:\/\/drive\.google\.com\/thumbnail\?id=FILE1&sz=w1200$/.test(r.knowledge.imageUrl),'gambar disimpan ke Drive: '+r.knowledge.imageUrl);
+const id3=r.knowledge.knId; const f=ctx.DriveApp._files.FILE1; ok(f.sharing[0]==='ANYONE_WITH_LINK'&&f.blob.mime==='image/png'&&f.blob.name===id3+'.png','kongsi pautan (lihat sahaja), nama fail ikut ID');
+r=post('createKnowledge',K({title:'D'})); ok(r.status==='error'&&/Maksimum 3/.test(r.message||r.error||''),'pin ke-4 ditolak');
+r=post('createKnowledge',K({title:'D',pinned:0})); ok(r.status==='success'&&r.knowledge.pinned===0,'ilmu tidak dipin dibenarkan'); const id4=r.knowledge.knId;
+ok(post('createKnowledge',K({title:''})).status==='error','tajuk kosong ditolak');
+ok(post('createKnowledge',K({title:'x'.repeat(121)})).status==='error','tajuk >120 ditolak');
+ok(post('createKnowledge',K({content:'y'.repeat(5001)})).status==='error','nota >5000 ditolak');
+ok(post('createKnowledge',K({content:'',pinned:0})).status==='error','tiada nota & tiada gambar ditolak');
+r=post('createKnowledge',K({content:'',pinned:0,title:'Hanya gambar',imageData:PNG})); ok(r.status==='success'&&r.knowledge.imageUrl,'gambar sahaja (tanpa nota) dibenarkan');
+ok(post('createKnowledge',K({pinned:0,imageData:'data:text/html;base64,PGI+'})).status==='error','data bukan gambar ditolak');
+ok(post('createKnowledge',K({pinned:0,imageData:'data:image/svg+xml;base64,PHN2Zz4='})).status==='error','SVG ditolak');
+const big='data:image/jpeg;base64,'+Buffer.alloc(1600000,1).toString('base64'); ok(post('createKnowledge',K({pinned:0,imageData:big})).status==='error','gambar >1.5MB ditolak');
+const filesBefore=Object.keys(ctx.DriveApp._files).length;
+r=get('getKnowledge'); ok(r.knowledge.length===5&&r.knowledge.filter(k=>k.pinned===1).length===3,'getKnowledge');
+// update
+r=post('updateKnowledge',{knId:id4,pinned:1}); ok(r.status==='error','pin ke-4 melalui update ditolak');
+r=post('updateKnowledge',{knId:id1,pinned:0}); ok(r.status==='success'&&r.knowledge.pinned===0&&r.knowledge.title==='Jangan average down','nyahpin (update separa)');
+r=post('updateKnowledge',{knId:id4,pinned:1}); ok(r.status==='success'&&r.knowledge.pinned===1,'pin selepas nyahpin');
+r=post('updateKnowledge',{knId:id3,title:'C2',imageUrl:'https://evil.com/y.png'}); ok(r.status==='success'&&r.knowledge.title==='C2'&&r.knowledge.imageUrl.indexOf('FILE1')>0,'URL klien tidak boleh menggantikan gambar sedia ada');
+r=post('updateKnowledge',{knId:id3,imageData:PNG}); ok(r.status==='success'&&r.knowledge.imageUrl.indexOf('FILE')>0&&r.knowledge.imageUrl.indexOf('FILE1')<0&&ctx.DriveApp._files.FILE1.trashed===true,'gambar baharu menggantikan lama (lama dibuang ke tong sampah)');
+const newId=/id=(FILE\d+)/.exec(r.knowledge.imageUrl)[1];
+r=post('updateKnowledge',{knId:id3,imageUrl:''}); ok(r.status==='success'&&r.knowledge.imageUrl===''&&ctx.DriveApp._files[newId].trashed===true,'buang gambar (imageUrl kosong) -> fail dibuang');
+ok(post('updateKnowledge',{knId:id3,title:'',}).status==='error','kosongkan tajuk ditolak');
+ok(post('updateKnowledge',{knId:'nope',title:'a'}).status==='error','ilmu tak wujud');
+// delete
+r=post('createKnowledge',K({pinned:0,title:'Padam',imageData:PNG})); const idD=r.knowledge.knId, fid=/id=(FILE\d+)/.exec(r.knowledge.imageUrl)[1];
+ok(post('deleteKnowledge',{knId:idD}).status==='success'&&ctx.DriveApp._files[fid].trashed===true&&!get('getKnowledge').knowledge.some(k=>k.knId===idD),'deleteKnowledge buang gambar Drive');
+ok(post('deleteKnowledge',{knId:'nope'}).status==='error','delete tak wujud');
+ok(sheets.KNOWLEDGE.d[0].join()==='knId,date,title,category,content,imageUrl,pinned,updatedDate','header KNOWLEDGE = medan frontend');
+console.log(fails?'GAGAL '+fails:'SEMUA LULUS');
