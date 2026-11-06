@@ -59,7 +59,7 @@ ok(a.resolveCounter('1155')==='MAYBANK'&&a.resolveCounter('9999')==='9999'&&a.re
 ok(a.counterHint('maybank').ok&&a.counterHint('1155').ok&&!a.counterHint('SIME').ok&&a.counterHint('')===null,'petunjuk patuh syariah');
 const b=mk(); await b.loadData(); ok(b.counters.length===5,'senarai kekal selepas muat semula');
 a.counterText='sampah\ntiada kod'; await a.importCounters(); ok(a.counters.length===5&&/Tiada kaunter sah/.test(a._t),'fail tanpa kaunter sah tidak menggantikan senarai');
-await a.clearCounters(); ok(a.counters.length===0&&a.counterHint('MAYBANK')===null,'kosongkan senarai');
+await a.clearCounters(); ok(a.counters.length===0&&a.ctUsingBuiltin&&!a.counterHint('MAYBANK').ok&&a.counterHint('TENAGA NASIONAL BHD').ok,'kembali ke senarai asal (terbina)');
 // file
 a.pickCounterFile({target:{files:[{size:100,text:'1155,MAYBANK'}],value:'x'}}); await wait(); ok(a.counterText==='1155,MAYBANK','fail dibaca ke kawasan teks');
 a.pickCounterFile({target:{files:[{size:4*1024*1024,text:''}],value:''}}); ok(/3MB/.test(a._t),'fail >3MB ditolak');

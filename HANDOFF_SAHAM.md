@@ -24,13 +24,13 @@ Stack frontend: Alpine.js 3 (CDN), Tailwind (dikompil dan dibenam dalam `<style 
 4. IPO (Bursa MY sahaja): permohonan, ballot, peruntukan, jual. Tiada yuran beli.
 5. Study & Backtest: rekod sesi belajar.
 6. Money: kalkulator saiz posisi (lot 100 untuk MY, 1 saham untuk US), deposit/withdraw, target bulanan/tahunan/akhir + progress bar.
-7. Settings: parameter, URL GAS, perpustakaan ilmu (nota + gambar ke Google Drive), profil saham (sektor + fundamental pilihan + tarikh laporan suku tahun), import senarai kaunter syariah, eksport CSV, reset demo.
+7. Settings: parameter, URL GAS, perpustakaan ilmu (nota + gambar ke Google Drive), profil saham (sektor + fundamental pilihan + tarikh laporan suku tahun), Senarai Saham Bursa (849 saham terbina + tambah manual + import), eksport CSV, reset demo.
 8. Cash Balance = `currentCapital − openCost`; beli ditolak jika dana tidak cukup (boleh dimatikan di Settings).
 9. Mod saham US berasingan (suis Bursa MY / US Stocks; lalai sentiasa MY): data, modal, yuran, target, mata wang (US$), sektor berasingan; kotak gabungan guna kadar manual `usdMyr`.
 10. Mod demo: tanpa URL GAS, data disimpan dalam `localStorage`.
 
 ## 4. Model data
-- Sheet GAS: TRADES (27 lajur, hujung = `lesson`, `market`, `buyLog`), SETTINGS, SETUPS, EXIT_REASONS, MISTAKES, PLANS, IPOS, CAPITAL, STUDIES, KNOWLEDGE, STOCKS, COUNTERS.
+- Sheet GAS: TRADES (27 lajur, hujung = `lesson`, `market`, `buyLog`), SETTINGS, SETUPS, EXIT_REASONS, MISTAKES, PLANS, IPOS, CAPITAL, STUDIES, KNOWLEDGE, STOCKS, COUNTERS (`code, name, updatedDate, sector, manual`).
 - Lajur baharu HANYA ditambah di hujung (`migrateColumns` tambah header pada sheet lama; baris tanpa `market` = MY).
 - Net P/L = gross − `buyFees` − `fees` (IPO: buyFees = 0). Yuran lalai Bursa MY RM4 beli + RM4 jual; US lalai 0.
 - Tetapan per pasaran: modal awal, yuran, target. Dikongsi: minRR, maxRiskTrade, cashCheck, usdMyr. Kunci US di pelayar/pelayar-ke-pelayan berawalan `us` (cth `usBuyFee`).
@@ -42,7 +42,7 @@ Stack frontend: Alpine.js 3 (CDN), Tailwind (dikompil dan dibenam dalam `<style 
 - `loadLocal()`: muat semua lain SEBELUM trade (kerana `saveLocal()` dipanggil pada pelancaran pertama).
 - Tatasusunan aktif (`trades`, `plans`, `capitalLog`) = data pasaran aktif; gunakan `allOf()` untuk merentas pasaran, `setMarket()` untuk tukar, `srvKeys()` untuk kunci tetapan ke pelayan.
 - Gambar ilmu: jangan simpan data URL dalam sel Sheets; server simpan ke Drive "SAHAM Ilmu"; paparkan hanya melalui `safeImg()`.
-- Jangan taip senarai kaunter syariah dari ingatan; mesti daripada fail rasmi yang pengguna import.
+- Jangan taip senarai kaunter syariah dari ingatan; senarai terbina hanya dijana daripada fail pengguna (kini `saham_patuh_syariah_mei2026.csv`), kemas kini seterusnya melalui import.
 - Formula net P/L mesti sama di klien dan `Code.gs`.
 - POST ke GAS sebagai `text/plain` (elak preflight CORS).
 
@@ -67,7 +67,7 @@ Hosting frontend: buka terus dari komputer, atau Netlify Drop / GitHub Pages unt
 - 05/11/2026: ciri DCA / Tambah Beli (purata harga automatik, lajur `buyLog`). Code.gs berubah: deploy New version. Lulus 19 suite + ujian Chromium.
 - 04/11/2026: ditambah kad Prestasi ikut Setup, Analisis Kesilapan, Pendedahan Sektor; penapis telefon satu baris. Lulus 17 suite + ujian Chromium.
 - Dibetulkan 03/11/2026: eksport CSV semua pasaran + lajur market; label kalkulator ikut mata wang; senarai Exit/Mistake dari Sheet; limpahan 2px kad Plan/IPO di telefon.
-- Senarai kaunter patuh syariah belum dibenamkan (fail rasmi tak dapat dimuat turun); pengguna import melalui Settings.
+- 06/11/2026: Senarai Saham Bursa dibenamkan (849 saham, SC Mei 2026, dengan sektor) + carian combobox + sektor automatik + tambah manual. Code.gs berubah (COUNTERS + sector, manual): deploy New version. Lulus 24 suite + ujian Chromium.
 - Cadangan belum dibuat: pin versi Alpine/Chart.js (diuji dengan Alpine 3.17.5, Chart.js 4.6.1), kadar USD/MYR automatik.
 
 ## 9. Custom Instructions (tampal dalam Project baharu)

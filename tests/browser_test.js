@@ -78,6 +78,25 @@ const ALP=fs.readFileSync('node_modules/alpinejs/dist/cdn.min.js','utf8'), CH=fs
  await m.screenshot({path:'shots/mobile.png',fullPage:true});
  for(const t of tabs){ await m.evaluate(t=>{Alpine.$data(document.querySelector('[x-data]')).activeTab=t},t); await m.waitForTimeout(300);
    const o=await m.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth); if(o>1) ok(false,'telefon: tab '+t+' melimpah '+o+'px'); }
+ // carian saham + sektor automatik (telefon, taip sebenar)
+ await m.evaluate(()=>{const a=Alpine.$data(document.querySelector('[x-data]'));a.activeTab='journal';a.openAddModal()}); await m.waitForTimeout(400);
+ const si=m.locator('input[x-model="form.stockName"]'); await si.click(); await si.fill(''); await si.type('tenaga',{delay:20}); await m.waitForTimeout(200);
+ const dd=m.locator('input[x-model="form.stockName"] ~ .stock-dd'); ok(await dd.isVisible(),'taip "tenaga": senarai cadangan muncul');
+ const first=await dd.locator('button').first().innerText(); ok(/5347/.test(first)&&/TENAGA NASIONAL BHD/.test(first)&&/Utilities/.test(first),'cadangan tunjuk kod, nama, sektor');
+ const ddBox=await dd.boundingBox(); ok(ddBox&&ddBox.x>=0&&ddBox.x+ddBox.width<=391,'telefon: senarai cadangan muat skrin');
+ await m.screenshot({path:'shots/stock-search.png'});
+ await m.keyboard.press('Enter'); await m.waitForTimeout(250);
+ const st=await m.evaluate(()=>{const a=Alpine.$data(document.querySelector('[x-data]'));return {n:a.form.stockName,s:a.fund.sector,h:a.counterHint(a.form.stockName)}});
+ ok(st.n==='TENAGA NASIONAL BHD'&&st.s==='Utilities'&&st.h.ok,'Enter pilih saham; sektor Utilities diisi automatik');
+ ok(!(await dd.isVisible()),'senarai ditutup selepas pilih');
+ await si.fill(''); await si.type('7113',{delay:20}); await m.waitForTimeout(200); await dd.locator('button').first().click(); await m.waitForTimeout(200);
+ ok(await m.evaluate(()=>{const a=Alpine.$data(document.querySelector('[x-data]'));return a.form.stockName==='TOP GLOVE CORPORATION BHD'&&a.fund.sector==='Healthcare'}),'ketik cadangan (cari ikut kod 7113) → Healthcare');
+ await m.evaluate(()=>{const a=Alpine.$data(document.querySelector('[x-data]'));a.showAddModal=false;a.activeTab='settings'}); await m.waitForTimeout(400);
+ await m.locator('input[x-model="ctForm.code"]').fill('1155'); await m.locator('input[x-model="ctForm.name"]').fill('Malayan Banking Bhd'); await m.locator('select[x-model="ctForm.sector"]').selectOption('Financial Services');
+ await m.getByText('Simpan ke Senarai').click(); await m.waitForTimeout(400);
+ ok(await m.evaluate(()=>{const a=Alpine.$data(document.querySelector('[x-data]'));return a.findCounter('1155')&&a.findCounter('1155').manual===1&&a.ctManual.length===1}),'Settings: tambah saham manual melalui UI');
+ const card=m.locator('h3',{hasText:'Senarai Saham Bursa'}).locator('xpath=../..'); await card.screenshot({path:'shots/stock-list-settings.png'});
+ const ovS=await m.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth); ok(ovS<=1,'Settings telefon: tiada skrol mendatar');
  const uniq=[...new Set(errs)]; ok(uniq.length===0,'tiada ralat JS/Alpine'); uniq.slice(0,15).forEach(e=>console.log('   ',e.slice(0,200)));
  await b.close(); console.log(fails?'GAGAL: '+fails:'SEMUA LULUS'); process.exitCode=fails?1:0;
 })();

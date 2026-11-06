@@ -69,8 +69,8 @@ var TEXT_SETTINGS = { ownerName: "" };
 var MAX_OWNER_NAME = 40;
 function allSettingKeys() { return Object.keys(DEFAULT_SETTINGS).concat(Object.keys(TEXT_SETTINGS)); }
 // Nama selamat: buang < > dan aksara kawalan, buang awalan = + - @ (elak formula dalam Sheets), maks 40 aksara
-function cleanText(v) {
-  return String(v === null || v === undefined ? "" : v).replace(/[<>\u0000-\u001f]/g, "").replace(/^[=+\-@\s]+/, "").replace(/\s+/g, " ").trim().slice(0, MAX_OWNER_NAME);
+function cleanText(v, max) {
+  return String(v === null || v === undefined ? "" : v).replace(/[<>\u0000-\u001f]/g, "").replace(/^[=+\-@\s]+/, "").replace(/\s+/g, " ").trim().slice(0, max || MAX_OWNER_NAME);
 }
 
 // Lajur CAPITAL (modal tambahan / pengeluaran) & STUDIES (study / backtest) - WAJIB sama dengan frontend
@@ -93,7 +93,8 @@ var SECTORS = ["Financial Services", "Technology", "Industrial Products & Servic
   // sektor pasaran US
   "Financials", "Consumer Discretionary", "Consumer Staples", "Communication Services", "Industrials", "Real Estate", "Materials"];
 // Senarai kaunter (cadangan nama saham). Hanya saham biasa (kod 4 digit); waran dan kod lain ditolak.
-var COUNTER_COLS = ["code", "name", "updatedDate"];
+// sector & manual ditambah 06/11/2026 (lajur baharu hanya di hujung)
+var COUNTER_COLS = ["code", "name", "updatedDate", "sector", "manual"];
 var COUNTER_DATE_COLS = ["updatedDate"];
 var MAX_COUNTERS = 3000;
 var MAX_PINNED = 3;
@@ -941,20 +942,25 @@ function deleteStock(p) {
 function getCountersSheet() { return getStoreSheet(SHEETS.COUNTERS, COUNTER_COLS, []); }
 function getCounters() { return listStore(getCountersSheet(), COUNTER_COLS, COUNTER_DATE_COLS, []); }
 
-// Ganti keseluruhan senarai. Kod mesti tepat 4 digit; nama bukan waran. Kod disimpan sebagai teks (kekalkan sifar di hadapan).
+// Ganti keseluruhan senarai. Kod disimpan sebagai teks (kekalkan sifar di hadapan).
+// Senarai import: kod tepat 4 digit, bukan waran. Tambahan manual (manual=1): 4 digit + hingga 2 huruf/angka (cth 5235SS).
+// Sektor mesti dalam SECTORS, jika tidak dikosongkan.
 function importCounters(p) {
   var list = p && p.counters;
   if (!Array.isArray(list)) throw new Error("Senarai kaunter diperlukan");
   if (list.length > MAX_COUNTERS) throw new Error("Terlalu banyak kaunter (maks " + MAX_COUNTERS + ")");
   var seen = {}, rows = [], d = today();
   list.forEach(function (c) {
-    var code = String(c && c.code || "").trim();
-    var name = String(c && c.name || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 60);
-    if (!/^\d{4}$/.test(code) || name.length < 2 || !/[A-Z]/.test(name)) return;
-    if (/-\s?(W[A-Z]|C\d+)$/.test(name) || /\bWARRANT/.test(name)) return;
+    var manual = c && (c.manual === 1 || c.manual === true || String(c.manual) === "1") ? 1 : 0;
+    var code = String(c && c.code || "").trim().toUpperCase();
+    var name = cleanText(String(c && c.name || "").replace(/\s+/g, " ").trim().toUpperCase(), 60);
+    var sector = String(c && c.sector || "").trim();
+    if (SECTORS.indexOf(sector) < 0) sector = "";
+    if (!(manual ? /^\d{4}[A-Z0-9]{0,2}$/ : /^\d{4}$/).test(code) || name.length < 2 || !/[A-Z]/.test(name)) return;
+    if (!manual && (/-\s?(W[A-Z]|C\d+)$/.test(name) || /\bWARRANT/.test(name))) return;
     if (seen[code]) return;
     seen[code] = true;
-    rows.push([code, name, d]);
+    rows.push([code, name, d, sector, manual ? "1" : ""]);
   });
   var sh = getCountersSheet();
   var maxRows = sh.getMaxRows();
